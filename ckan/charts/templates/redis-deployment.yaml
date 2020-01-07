@@ -1,0 +1,26 @@
+{{ if .Values.enabled }}
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: redis
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      {{ if .Values.nodeSelector }}
+      nodeSelector:
+        {{ .Values.nodeSelector }}
+      {{ end }}
+      containers:
+      - name: redis
+        image: {{ .Values.redisImage | quote }}
+        ports:
+        - containerPort: 6379
+        resources: {{ .Values.redisResources }}
+{{ end }}

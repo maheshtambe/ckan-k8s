@@ -1,0 +1,17 @@
+{{ if .Values.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    service: ckan
+  name: ckan
+spec:
+  ports:
+  - nodePort: 31581
+    port: 5000
+    protocol: TCP
+    targetPort: 5000
+  selector:
+    app: ckan
+  type: NodePort
+{{ end }}

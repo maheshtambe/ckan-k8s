@@ -1,0 +1,6 @@
+Steps to install
+(Go to ckan directory and run below)
+
+1. ./install_ckan.sh
+2. ./utils/ckan-sysadmin.sh add roche
+7. create organization from UI

@@ -1,0 +1,83 @@
+enabled: true
+ckanDeploymentEnabled: true
+nodeSelector: 'kubernetes.io/role: worker'
+ckanResources: '{"requests": {"cpu": "200m", "memory": "200Mi"}, "limits": {"memory": "500Mi"}}'
+dbResources: '{"requests": {"cpu": "20m", "memory": "200Mi"}, "limits": {"memory": "500Mi"}}'
+solrResources: '{"requests": {"cpu": "100m", "memory": "200Mi"}, "limits": {"memory": "500Mi"}}'
+#  ckanDataPersistentDiskName: odata-ckan-data
+#  ckanDbPersistentDiskName: odata-db
+#  nfsEnabled: true
+#  ckanDataNfsServer: 10.98.10.247
+#  etcCkanDefaultSecretName: ckan-default-3
+ckanSecretName: ckan-secrets
+envVarsSecretName: ckan-env-vars
+#  dbNfsEnabled: true
+#  ckanDbNfsServer: 10.100.195.176
+replicas: 1
+redisResources: '{"requests": {"cpu": "10m", "memory": "50Mi"}, "limits": {"memory": "100Mi"}}'
+ckanServiceAccountName: ckan-kubectl
+hostPath: /apps
+fixPermissions: true
+ckanImage: registry-server.local:30002/roche/ckan:4b125d8a4c161b93cbcc520299b94e5f8dbb2d82
+
+db:
+  enabled: false
+  initialize: true
+  terminationGracePeriodSeconds: 30
+  image: registry-server.local:30002/roche/ckan-db:v0.2.20
+
+datastore:
+  enabled: false
+  terminationGracePeriodSeconds: 30
+  datapusherEnabled: true
+  xloaderEnabled: true
+  image: registry-server.local:30002/roche/ckan-db:v0.2.20
+  resources: '{"requests": {"cpu": "20m", "memory": "200Mi"}, "limits": {"memory": "300Mi"}}'
+  dbOps:
+    enabled: false
+#      backup: "gs://odata-k8s-backups/production/blue/datastore-db-dump-"
+#    restore: "gs://odata-k8s-backups/production/datastore-db-dump-2018-09-27.datastore.dump"
+  # this is needed when connecing to ckan using port-forward
+  datapusherPortForward: true
+  dataPusherTerminationGracePeriodSeconds: 30
+  dataPusherResources: '{"requests": {"cpu": "10m", "memory": "10Mi"}, "limits": {"memory": "100Mi"}}'
+#    persistentDiskName: odata-blue-datastore
+
+dbOps:
+  enabled: false
+pipelines:
+  enabled: false
+
+solrImage: registry-server.local:30002/roche/ckan-solr:v0.3.1
+redisImage: registry-server.local:30002/roche/ckan-redis:alphine
+datapusherImage: registry-server.local:30002/roche/ckan-datapusher:v0.1.3
+dataportalImage: registry-server.local:30002/roche/ckan-dataportal:18
+alpineImage: registry-server.local:30002/roche/alpine
+
+#site URL should be generated based on nodeip and assigned nodeport
+siteUrl: http://10.164.106.4:31581
+siteTitle: Roche CKAN
+siteDescription: Roche Pipelines Datasets
+siteLogo: /base/images/ckan-logo.png
+favIcon: /base/images/ckan.ico
+localeDefault: en_US
+localeOrder:  en_US
+localesOffered:  en_US
+localesFilteredOut: ""
+
+ckanPlugins: >
+  stats text_view image_view recline_view
+  odata_org_il file_uploader_ui datapackage_pipelines upload_via_email
+  datastore xloader
+
+auth:
+  anon_create_dataset: "false"
+  create_unowned_dataset: "false"
+  create_dataset_if_not_in_organization: "true"
+  user_create_groups: "false"
+  user_create_organizations: "false"
+  user_delete_groups: "false"
+  user_delete_organizations: "false"
+  create_user_via_api: "false"
+  create_user_via_web: "true"
+  roles_that_cascade_to_sub_groups: "admin"

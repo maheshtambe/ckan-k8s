@@ -1,0 +1,41 @@
+{{ if and .Values.enabled .Values.datastore.enabled }}
+{{ if .Values.datastore.datapusherEnabled }}
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: datapusher
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: datapusher
+    spec:
+      {{ if .Values.nodeSelector }}
+      nodeSelector:
+        {{ .Values.nodeSelector }}
+      {{ end }}
+      {{ if .Values.datastore.dataPusherTerminationGracePeriodSeconds }}
+      terminationGracePeriodSeconds: {{ .Values.dataPusherTerminationGracePeriodSeconds }}
+      {{ end }}
+      containers:
+      - name: datapusher
+        image: {{ .Values.datapusherImage | quote }}
+        ports:
+        - containerPort: 8800
+        resources: {{ .Values.datastore.dataPusherResources }}
+        env:
+        - name: DATAPUSHER_MAX_CONTENT_LENGTH
+          value: {{ .Values.datapusherMaxContentLength | default "102400000" | quote }}
+        - name: DATAPUSHER_SQLALCHEMY_URI
+          value: postgresql://postgres:123456@localhost/postgres
+      - name: postgres
+        image: postgres
+        env:
+        - name: POSTGRES_PASSWORD
+          value: "123456"
+{{ end }}
+{{ end }}

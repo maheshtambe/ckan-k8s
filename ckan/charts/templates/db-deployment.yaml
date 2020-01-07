@@ -1,0 +1,107 @@
+{{ if and .Values.enabled .Values.db.enabled }}
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: db
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: db
+    spec:
+      {{ if .Values.nodeSelector }}
+      nodeSelector:
+        {{ .Values.nodeSelector }}
+      {{ end }}
+      terminationGracePeriodSeconds: {{ .Values.db.terminationGracePeriodSeconds }}
+      containers:
+      - name: db
+        image: {{ .Values.db.image | quote }}
+        ports:
+        - containerPort: 5432
+        resources: {{ .Values.dbResources }}
+        env:
+        - name: POSTGRES_PASSWORD
+          valueFrom: {secretKeyRef: {name: {{ .Values.envVarsSecretName | default "env-vars" | quote }}, key: "POSTGRES_PASSWORD"}}
+        {{ if .Values.dbOps.enabled }}
+        - name: BACKUP_DATABASE_NAME
+          value: ckan
+        - name: BACKUP_DATABASE_FILE
+          value: "/db-backup/ckan.dump"
+        - name: BACKUP_CRONLINE
+          #      minute hour day_of_month month day_of_week
+          value: "0     2    *            *     *"
+        {{ end }}
+#        command: [sleep, "86400"]
+        {{ if .Values.db.initialize }}
+        command: [bash, /db-scripts/initialize.sh]
+        {{ else if .Values.dbOps.enabled }}
+        {{ if .Values.dbOps.backup }}
+        command: [bash, "-c", "bash /db-scripts/backup-cron.sh BACKUP_DATABASE_NAME& exec docker-entrypoint.sh postgres"]
+        {{ else if .Values.dbOps.restore }}
+        command: [bash, /db-scripts/restore.sh]
+        {{ end }}
+        {{ end }}
+        volumeMounts:
+        - name: db
+          mountPath: /var/lib/postgresql/data
+          subPath: postgresql-data
+        {{ if .Values.dbOps.enabled }}
+        - name: backups
+          mountPath: /db-backup
+        {{ end }}
+      {{ if .Values.dbOps.enabled }}
+      - name: db-ops
+        image: {{ .Values.db.opsImage | quote }}
+        {{ if .Values.dbOps.backup }}
+        args: ["bash", "/db-scripts/upload-cron.sh"]
+        {{ else if .Values.dbOps.restore }}
+        args: ["bash", "/db-scripts/download.sh", {{ .Values.dbOps.restore | quote }}]
+        {{ else }}
+        args: ["bash", "-c", "while true; do sleep 86400; done"]
+        {{ end }}
+        resources: {"requests": {"cpu": "5m", "memory": "10Mi"}}
+        env:
+        - name: SECRET_SERVICE_KEY_FILE
+          value: /secret_k8s_ops/secret.json
+        - name: DB_BACKUP_FILE
+          value: /db-backup/ckan.dump
+        - name: BACKUP_TARGET_PREFIX
+          value: {{ .Values.dbOps.backup | quote }}
+        - name: BACKUP_TARGET_SUFFIX
+          value: ".ckan.dump"
+        volumeMounts:
+        - name: backups
+          mountPath: /db-backup
+        - name: k8s-ops
+          mountPath: /secret_k8s_ops
+          readOnly: true
+      {{ end }}
+      volumes:
+      {{ if .Values.dbOps.enabled }}
+      - name: backups
+        emptyDir: {}
+      - name: k8s-ops
+        secret:
+          secretName: {{ .Values.dbOps.secretName | default "ckan-db-backups" | quote }}
+      {{ end }}
+      - name: db
+        {{ if .Values.ckanDbPersistentDiskName }}
+        gcePersistentDisk:
+          pdName: {{ .Values.ckanDbPersistentDiskName | quote }}
+        {{ else }}
+        {{ if .Values.hostPath }}
+        hostPath:
+          path: {{ .Values.hostPath | quote }}
+          type: DirectoryOrCreate
+        {{ else }}
+        nfs:
+          server: {{ .Values.ckanDataNfsServer | default "nfs" | quote }}
+          path: "/"
+        {{ end }}
+        {{ end }}
+{{ end }}
